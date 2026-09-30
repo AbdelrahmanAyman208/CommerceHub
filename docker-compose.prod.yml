@@ -1,0 +1,135 @@
+# ═══════════════════════════════════════════════════════════════════
+# CommerceHub — Production Docker Compose
+# Multi-instance API, PgBouncer, Nginx reverse proxy
+# Target: 2 CPU cores, 12 GB RAM VPS (~3.5 GB used)
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  # ── Nginx (reverse proxy + static files + PDFs) ─────────────────
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - uploads:/app/uploads:ro
+    depends_on:
+      - api1
+      - api2
+    mem_limit: 64m
+    restart: unless-stopped
+
+  # ── API Instance 1 ──────────────────────────────────────────────
+  api1:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      PORT: "3000"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    mem_limit: 512m
+    restart: unless-stopped
+
+  # ── API Instance 2 ──────────────────────────────────────────────
+  api2:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      PORT: "3000"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    mem_limit: 512m
+    restart: unless-stopped
+
+  # ── Worker ──────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    env_file: .env
+    command: ["node", "src/worker.js"]
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    mem_limit: 256m
+    restart: unless-stopped
+
+  # ── PostgreSQL ──────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    env_file: .env
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    command: >
+      postgres
+        -c shared_buffers=512MB
+        -c effective_cache_size=1536MB
+        -c work_mem=4MB
+        -c maintenance_work_mem=128MB
+        -c max_connections=200
+        -c random_page_cost=1.1
+        -c effective_io_concurrency=200
+        -c wal_buffers=16MB
+        -c max_wal_size=1GB
+    mem_limit: 2g
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-commerce_hub}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── PgBouncer (connection pooling) ──────────────────────────────
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      DATABASE_URL: postgresql://commerce_hub:${POSTGRES_PASSWORD}@postgres:5432/commerce_hub
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "200"
+      DEFAULT_POOL_SIZE: "20"
+      MIN_POOL_SIZE: "5"
+      RESERVE_POOL_SIZE: "5"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 32m
+    restart: unless-stopped
+
+  # ── Redis ───────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 96mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata_prod:/data
+    mem_limit: 128m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata_prod:
+  redisdata_prod:
+  uploads:
