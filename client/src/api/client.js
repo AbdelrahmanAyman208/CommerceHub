@@ -7,7 +7,7 @@ const api = axios.create({
   timeout: 3000,
 });
 
-let isBackendDown = false;
+let isBackendDown = typeof window !== 'undefined' && (window.location.hostname.includes('github.io') || window.location.protocol === 'file:');
 
 // In-memory active attempt store for standalone dev mode
 let currentActiveAttempt = null;
@@ -25,18 +25,15 @@ function handleMockFallback(config) {
       (u) =>
         u.email.toLowerCase() === identifier ||
         (u.studentId && u.studentId.toLowerCase() === identifier)
-    );
+    ) || mockDb.users[0];
 
-    if (user) {
-      return {
-        status: 200,
-        data: {
-          accessToken: `mock-token-${user.id}`,
-          user,
-        },
-      };
-    }
-    return { status: 401, data: { error: 'Invalid credentials' } };
+    return {
+      status: 200,
+      data: {
+        accessToken: `mock-token-${user.id}`,
+        user,
+      },
+    };
   }
 
   // 2. Auth: Me
@@ -438,10 +435,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // If backend connection refused, timeout, or 5xx proxy error
+    // If backend connection refused, 404/405 from static gh-pages, timeout, or 5xx proxy error
     if (
       !error.response ||
-      error.response.status >= 500 ||
+      error.response.status >= 400 ||
       error.code === 'ERR_NETWORK' ||
       error.code === 'ECONNREFUSED' ||
       error.code === 'ECONNABORTED'
