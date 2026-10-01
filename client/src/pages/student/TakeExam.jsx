@@ -232,18 +232,7 @@ export default function TakeExam({ examId, onFinish }) {
     <AntiScreenshotShield enabled={true}>
       <div className="exam-room" style={{ maxWidth: '1050px', margin: '0 auto', padding: '16px' }}>
         {/* Exam Header */}
-        <header
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '16px 20px',
-            background: 'rgba(30, 41, 59, 0.7)',
-            borderRadius: '12px',
-            border: '1px solid #334155',
-            marginBottom: '20px',
-          }}
-        >
+        <header className="exam-header">
           <div>
             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#f8fafc' }}>
               {examTitle}
@@ -282,7 +271,7 @@ export default function TakeExam({ examId, onFinish }) {
           </div>
         </header>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: '20px' }}>
+        <div className="exam-grid">
           {/* Main Question Box */}
           {currentQ && (
             <div className="card" style={{ padding: '28px' }}>

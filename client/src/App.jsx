@@ -36,6 +36,7 @@ function MainApp() {
   const [selectedExamForBuilder, setSelectedExamForBuilder] = useState(null);
   const [activeExamId, setActiveExamId] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Sync RTL/LTR with current language
   useEffect(() => {
@@ -53,6 +54,11 @@ function MainApp() {
       }
     }
   }, [user]);
+
+  const handleSetCurrentTab = (tab) => {
+    setCurrentTab(tab);
+    setMobileMenuOpen(false);
+  };
 
   if (loading) {
     return (
@@ -75,11 +81,20 @@ function MainApp() {
   return (
     <div className="app">
       {/* Top Navbar */}
-      <Navbar onOpenNotifications={() => setShowNotifications(true)} />
+      <Navbar
+        onOpenNotifications={() => setShowNotifications(true)}
+        onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}
+        isMobileMenuOpen={mobileMenuOpen}
+      />
 
       {/* Main Layout: Sidebar + Dynamic Content */}
       <div className="portal-layout">
-        <Sidebar currentTab={currentTab} setCurrentTab={setCurrentTab} />
+        <Sidebar
+          currentTab={currentTab}
+          setCurrentTab={handleSetCurrentTab}
+          isOpen={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+        />
 
         <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
           {/* Admin Views */}
@@ -92,14 +107,14 @@ function MainApp() {
                 <Exams
                   onSelectExamForBuilder={(exam) => {
                     setSelectedExamForBuilder(exam);
-                    setCurrentTab('builder');
+                    handleSetCurrentTab('builder');
                   }}
                 />
               )}
               {currentTab === 'builder' && selectedExamForBuilder && (
                 <ExamBuilder
                   exam={selectedExamForBuilder}
-                  onBack={() => setCurrentTab('exams')}
+                  onBack={() => handleSetCurrentTab('exams')}
                 />
               )}
               {currentTab === 'results' && <Results />}

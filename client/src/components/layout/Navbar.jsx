@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api/client';
 
-export default function Navbar({ onOpenNotifications }) {
+export default function Navbar({ onOpenNotifications, onToggleMobileMenu, isMobileMenuOpen }) {
   const { t, i18n } = useTranslation();
   const { user, logout, isDoctor, isAssistant, isStudent } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -51,6 +51,14 @@ export default function Navbar({ onOpenNotifications }) {
   return (
     <header className="navbar">
       <div className="navbar-brand">
+        <button
+          onClick={onToggleMobileMenu}
+          className="mobile-toggle-btn"
+          aria-label="Toggle navigation menu"
+          title="Toggle Navigation Menu"
+        >
+          {isMobileMenuOpen ? '✕' : '☰'}
+        </button>
         <div className="brand-logo">
           <span>CH</span>
         </div>
@@ -63,12 +71,22 @@ export default function Navbar({ onOpenNotifications }) {
       <div className="navbar-actions">
         {/* Theme Toggle */}
         <button onClick={toggleTheme} className="nav-btn theme-btn" title="Toggle Light/Dark Theme">
-          {theme === 'dark' ? '☀️ ' + (i18n.language === 'ar' ? 'المظهر الفاتح' : 'Light') : '🌙 ' + (i18n.language === 'ar' ? 'المظهر الداكن' : 'Dark')}
+          <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+          <span className="btn-text-desktop">
+            {theme === 'dark'
+              ? i18n.language === 'ar'
+                ? 'المظهر الفاتح'
+                : 'Light'
+              : i18n.language === 'ar'
+              ? 'المظهر الداكن'
+              : 'Dark'}
+          </span>
         </button>
 
         {/* Language switch */}
         <button onClick={toggleLanguage} className="nav-btn lang-btn" title="Toggle Language">
-          🌐 {i18n.language === 'ar' ? 'English' : 'العربية'}
+          <span>🌐</span>
+          <span className="btn-text-desktop">{i18n.language === 'ar' ? 'English' : 'العربية'}</span>
         </button>
 
         {/* Notifications button */}

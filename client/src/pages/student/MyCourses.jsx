@@ -64,7 +64,7 @@ export default function MyCourses() {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '24px' }}>
+        <div className="courses-split-layout">
           {/* Courses Sidebar */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {courses.map((c) => {

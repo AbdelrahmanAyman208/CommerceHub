@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 
-export default function Sidebar({ currentTab, setCurrentTab }) {
+export default function Sidebar({ currentTab, setCurrentTab, isOpen, onClose }) {
   const { t } = useTranslation();
   const { isDoctor, isAdmin, isStudent } = useAuth();
 
@@ -25,20 +25,34 @@ export default function Sidebar({ currentTab, setCurrentTab }) {
 
   const items = isAdmin ? adminNavItems : studentNavItems;
 
+  const handleItemClick = (id) => {
+    setCurrentTab(id);
+    if (onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <aside className="sidebar">
-      <nav className="sidebar-nav">
-        {items.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setCurrentTab(item.id)}
-            className={`nav-item ${currentTab === item.id ? 'active' : ''}`}
-          >
-            <span className="nav-icon">{item.icon}</span>
-            <span className="nav-label">{item.label}</span>
-          </button>
-        ))}
-      </nav>
-    </aside>
+    <>
+      <div
+        className={`sidebar-backdrop ${isOpen ? 'show' : ''}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+        <nav className="sidebar-nav">
+          {items.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => handleItemClick(item.id)}
+              className={`nav-item ${currentTab === item.id ? 'active' : ''}`}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+      </aside>
+    </>
   );
 }
