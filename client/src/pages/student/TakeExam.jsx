@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../../api/client';
 import AntiScreenshotShield from '../../components/common/AntiScreenshotShield';
+import PreExamWarningModal from '../../components/common/PreExamWarningModal';
 
 export default function TakeExam({ examId, onFinish }) {
   const { t, i18n } = useTranslation();
@@ -17,57 +18,78 @@ export default function TakeExam({ examId, onFinish }) {
   const [submitting, setSubmitting] = useState(false);
   const [examResult, setExamResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showWarningModal, setShowWarningModal] = useState(true);
+  const [violations, setViolations] = useState([]);
 
   const isAr = i18n.language === 'ar';
   const autosaveTimerRef = useRef(null);
 
-  // Initialize or resume exam attempt
+  // Fetch exam metadata first for the Pre-Exam warning screen
   useEffect(() => {
-    const initExam = async () => {
+    const fetchExamMeta = async () => {
       try {
-        // Try starting or resuming
-        let res;
-        try {
-          res = await api.post(`/exams/${examId}/start`);
-        } catch (startErr) {
-          // If already in progress, try resume
-          res = await api.get(`/exams/${examId}/resume`);
-        }
-
-        const data = res.data;
-        if (data.questions) {
-          setQuestions(data.questions);
-          setExam(data.exam);
-          setAttempt(data.attempt);
-          if (data.savedAnswers) {
-            setAnswers(data.savedAnswers);
-          }
-
-          // Calculate remaining seconds
-          const expiryTime = new Date(data.attempt.expiresAt || data.attempt.expires_at).getTime();
-          const rem = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
-          setTimeLeft(rem);
-        } else if (data.attemptId) {
-          // Resume endpoint
-          const resumeRes = await api.get(`/exams/${examId}/resume`);
-          setQuestions(resumeRes.data.questions);
-          setExam(resumeRes.data.exam);
-          setAttempt(resumeRes.data.attempt);
-          setAnswers(resumeRes.data.savedAnswers || {});
-
-          const expiryTime = new Date(resumeRes.data.attempt.expiresAt).getTime();
-          const rem = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
-          setTimeLeft(rem);
-        }
+        const res = await api.get(`/exams/${examId}`);
+        setExam(res.data.exam);
       } catch (err) {
-        setErrorMsg(err.response?.data?.error || 'Failed to initialize exam');
+        console.error('Failed to load exam metadata:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    initExam();
+    fetchExamMeta();
   }, [examId]);
+
+  // Start actual exam attempt after student agrees to academic integrity rules
+  const startActualExam = async () => {
+    setLoading(true);
+    try {
+      let res;
+      try {
+        res = await api.post(`/exams/${examId}/start`);
+      } catch (startErr) {
+        // If already in progress, resume
+        res = await api.get(`/exams/${examId}/resume`);
+      }
+
+      const data = res.data;
+      if (data.questions) {
+        setQuestions(data.questions);
+        if (data.exam) setExam(data.exam);
+        setAttempt(data.attempt);
+        if (data.savedAnswers) {
+          setAnswers(data.savedAnswers);
+        }
+
+        const expiryTime = new Date(data.attempt.expiresAt || data.attempt.expires_at).getTime();
+        const rem = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
+        setTimeLeft(rem);
+      } else if (data.attemptId) {
+        const resumeRes = await api.get(`/exams/${examId}/resume`);
+        setQuestions(resumeRes.data.questions);
+        if (resumeRes.data.exam) setExam(resumeRes.data.exam);
+        setAttempt(resumeRes.data.attempt);
+        setAnswers(resumeRes.data.savedAnswers || {});
+
+        const expiryTime = new Date(resumeRes.data.attempt.expiresAt).getTime();
+        const rem = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
+        setTimeLeft(rem);
+      }
+      setShowWarningModal(false);
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error || 'Failed to initialize exam');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Real-time violation handler
+  const handleViolation = async (v) => {
+    setViolations((prev) => [...prev, v]);
+    try {
+      await api.post(`/exams/${examId}/violation`, v);
+    } catch (e) {}
+  };
 
   // Countdown timer
   useEffect(() => {
@@ -224,13 +246,70 @@ export default function TakeExam({ examId, onFinish }) {
     );
   }
 
+  // Pre-Exam Academic Integrity Warning Briefing
+  if (showWarningModal) {
+    return (
+      <PreExamWarningModal
+        isOpen={showWarningModal}
+        exam={exam}
+        onAccept={startActualExam}
+        onCancel={onFinish}
+      />
+    );
+  }
+
   const currentQ = questions[currentIdx];
   const answeredCount = Object.keys(answers).length;
   const examTitle = isAr && exam?.title_ar ? exam.title_ar : exam?.title;
 
   return (
-    <AntiScreenshotShield enabled={true}>
+    <AntiScreenshotShield
+      enabled={true}
+      onViolation={handleViolation}
+      violationCount={violations.length}
+    >
       <div className="exam-room" style={{ maxWidth: '1050px', margin: '0 auto', padding: '16px' }}>
+        {/* Real-time Cheating Violation Warning Banner */}
+        {violations.length > 0 && (
+          <div
+            style={{
+              marginBottom: '16px',
+              padding: '12px 16px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid #ef4444',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              color: '#fca5a5',
+              fontSize: '13px',
+              fontWeight: 700,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>🚨</span>
+              <span>
+                {isAr
+                  ? `تحذير أمني: تم رصد وتسجيل ${violations.length} مخالفة (تصوير شاشة / مغادرة النافذة) وإرسالها فوراً لأستاذ المادة!`
+                  : `Proctoring Alert: ${violations.length} cheating violation(s) recorded and transmitted live to course professor!`}
+              </span>
+            </div>
+            <span
+              style={{
+                background: '#ef4444',
+                color: '#ffffff',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {violations[violations.length - 1]?.label} ({violations[violations.length - 1]?.timestamp})
+            </span>
+          </div>
+        )}
+
         {/* Exam Header */}
         <header className="exam-header">
           <div>

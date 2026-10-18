@@ -233,6 +233,12 @@ export const mockDb = {
       total_marks: 20.0,
       pass_mark: 10.0,
       passed: true,
+      violations: [
+        { id: 'v1', type: 'screenshot', label: 'Screen Capture Attempt (Windows Snipping Tool / Shortcut)', timestamp: '08:14:22 PM' },
+        { id: 'v2', type: 'tab_switch', label: 'Tab Switch / Browser Window Lost Focus', timestamp: '08:15:05 PM' },
+      ],
+      violation_count: 2,
+      cheating_flag: true,
       submitted_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
     },
     {
@@ -249,11 +255,24 @@ export const mockDb = {
       total_marks: 20.0,
       pass_mark: 10.0,
       passed: false,
+      violations: [],
+      violation_count: 0,
+      cheating_flag: false,
       submitted_at: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
     },
   ],
 
   notifications: [
+    {
+      id: 'n_cheat_alert',
+      type: 'security_alert',
+      title: '🚨 Cheating Attempt Detected: Mohamed Ibrahim',
+      title_ar: '🚨 رصد محاولة غش أكاديمي: محمد إبراهيم',
+      body: 'Student Mohamed Ibrahim (10000001) triggered a screenshot and tab-switch violation on "Quiz 1 - Accounting Principles".',
+      body_ar: 'قام الطالب محمد إبراهيم (10000001) بمحاولة تصوير شاشة ومغادرة النافذة في اختبار "اختبار قصير 1 - مبادئ المحاسبة".',
+      read: false,
+      created_at: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    },
     {
       id: 'n1',
       title: 'Welcome to CommerceHub Platform',

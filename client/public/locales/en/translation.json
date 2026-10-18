@@ -140,7 +140,17 @@
     "overrideNotice": "Only the Doctor (Super Admin) has authorization to modify grades.",
     "assistantRestricted": "Assistants cannot alter student grades.",
     "newScore": "New Score",
-    "updateScore": "Save Grade Adjustment"
+    "updateScore": "Save Grade Adjustment",
+    "integrity": "Academic Integrity",
+    "cheatingFlagged": "Cheating Detected",
+    "cleanRecord": "Clean / No Violations",
+    "violationsCount": "Violations",
+    "auditTitle": "Proctoring & Cheating Audit Log",
+    "disqualify": "Zero Out Score (Cheating)",
+    "disqualifySuccess": "Student score set to 0.0 due to verified cheating violations.",
+    "auditStudent": "Student Details",
+    "auditTimeline": "Detected Violation Incident Timeline",
+    "noViolations": "No cheating incidents or suspicious activity recorded."
   },
   "students": {
     "title": "Students Roster",
@@ -164,9 +174,26 @@
     "pdfEngagement": "PDF Lecture Engagement",
     "atRisk": "At-Risk Students (<50% Average)"
   },
+  "examWarning": {
+    "badge": "MANDATORY ACADEMIC INTEGRITY BRIEFING",
+    "title": "Academic Integrity & Anti-Cheating Protocol",
+    "subtitle": "Strict automated proctoring is active. Review and accept the regulations below before entering the examination room.",
+    "rule1Title": "Tab & Application Lockout",
+    "rule1Desc": "Leaving this tab, minimizing the browser, or switching windows is prohibited. Every tab switch or defocus event is recorded with an exact timestamp and reported directly to your professor.",
+    "rule2Title": "Screen Capture & Snipping Tool Prohibited",
+    "rule2Desc": "PrintScreen, Windows Snipping Tool (Win + Shift + S), Mac screen captures, and external capture software trigger an instant blackout shield and log a cheating violation.",
+    "rule3Title": "Permanent Identity Watermarking",
+    "rule3Desc": "Your full name and student ID are dynamically stamped across all exam questions and answer options. Any external phone camera photograph will irrevocably identify your account.",
+    "rule4Title": "Direct Professor Referral & Disciplinary Action",
+    "rule4Desc": "All violation logs appear in real time in the professor's dashboard. Documented cheating attempts empower the instructor to immediately zero out the score and initiate disciplinary action.",
+    "pledgeText": "I solemnly pledge that I am taking this exam independently and honestly. I understand that any tab switches, screen captures, or unauthorized attempts are monitored and transmitted directly to the professor in real time.",
+    "startBtn": "I Understand & Begin Exam",
+    "cancelBtn": "Cancel & Return to Portal"
+  },
   "antiScreenshot": {
-    "warningTitle": "Security Alert",
-    "warningMessage": "Academic Integrity Shield: Screen capture, printing, and context menus are disabled. Please stay on this tab to avoid auto-submission."
+    "warningTitle": "Security Alert — Cheating Attempt Logged",
+    "warningMessage": "Academic Integrity Shield: Screen capture and window switching are strictly prohibited. This incident has been logged and reported to your professor.",
+    "violationAlert": "Cheating Violation #{{count}} Recorded & Sent to Professor!"
   },
   "common": {
     "save": "Save",

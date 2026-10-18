@@ -274,6 +274,59 @@ function handleMockFallback(config) {
     return { status: 200, data: { status: 'saved' } };
   }
 
+  // Handle real-time cheating violation
+  if (url.includes('/exams/') && url.includes('/violation')) {
+    const examId = url.split('/exams/')[1].split('/violation')[0];
+    const exam = mockDb.exams.find((e) => e.id === examId) || mockDb.exams[0];
+    const body = typeof config.data === 'string' ? JSON.parse(config.data) : (config.data || {});
+
+    if (!currentActiveAttempt) {
+      currentActiveAttempt = { attemptId: `att-${Date.now()}`, violations: [] };
+    }
+    if (!currentActiveAttempt.violations) {
+      currentActiveAttempt.violations = [];
+    }
+
+    const violationItem = {
+      id: `v_${Date.now()}`,
+      type: body.type || 'cheating_attempt',
+      label: body.label || 'Academic Integrity Violation',
+      timestamp: body.timestamp || new Date().toLocaleTimeString(),
+    };
+    currentActiveAttempt.violations.push(violationItem);
+
+    // Push notification to professor / doctor in real time
+    const studentUser = mockDb.users.find((u) => u.role === 'student') || mockDb.users[2];
+    mockDb.notifications.unshift({
+      id: `n_cheat_${Date.now()}`,
+      type: 'security_alert',
+      title: `🚨 Academic Cheating Attempt: ${studentUser.name}`,
+      title_ar: `🚨 رصد محاولة غش أكاديمي: ${studentUser.name}`,
+      body: `Student ${studentUser.name} (${studentUser.studentId || '10000001'}) triggered ${violationItem.label} on "${exam.title}".`,
+      body_ar: `قام الطالب ${studentUser.name} (${studentUser.studentId || '10000001'}) بمخالفة ضوابط الامتحان عبر ${violationItem.label} في "${exam.title_ar || exam.title}".`,
+      read: false,
+      created_at: new Date().toISOString(),
+    });
+
+    // Update student's result record if already in mock results
+    const existingResult = mockDb.results.find((r) => r.exam_id === exam.id && r.student_id === studentUser.id);
+    if (existingResult) {
+      if (!existingResult.violations) existingResult.violations = [];
+      existingResult.violations.push(violationItem);
+      existingResult.violation_count = existingResult.violations.length;
+      existingResult.cheating_flag = true;
+    }
+
+    return {
+      status: 200,
+      data: {
+        status: 'logged',
+        violationCount: currentActiveAttempt.violations.length,
+        message: 'Violation recorded and notified to professor',
+      },
+    };
+  }
+
   if (url.includes('/exams/') && url.includes('/submit')) {
     const examId = url.split('/exams/')[1].split('/submit')[0];
     const exam = mockDb.exams.find((e) => e.id === examId) || mockDb.exams[0];
@@ -283,6 +336,39 @@ function handleMockFallback(config) {
     const passed = score >= passMark;
     exam.my_best_score = score;
 
+    const studentUser = mockDb.users.find((u) => u.role === 'student') || mockDb.users[2];
+    const attemptViolations = (currentActiveAttempt && currentActiveAttempt.violations) || [];
+
+    const existingIndex = mockDb.results.findIndex(
+      (r) => r.exam_id === exam.id && r.student_id === studentUser.id
+    );
+
+    const submissionData = {
+      attempt_id: currentActiveAttempt?.attemptId || `att-${Date.now()}`,
+      student_id: studentUser.id,
+      student_name: studentUser.name,
+      student_number: studentUser.studentId || '10000001',
+      student_email: studentUser.email,
+      exam_id: exam.id,
+      exam_title: exam.title,
+      exam_title_ar: exam.title_ar,
+      attempt_number: exam.my_attempts_count,
+      score,
+      total_marks: exam.total_marks,
+      pass_mark: passMark,
+      passed,
+      violations: attemptViolations,
+      violation_count: attemptViolations.length,
+      cheating_flag: attemptViolations.length > 0,
+      submitted_at: new Date().toISOString(),
+    };
+
+    if (existingIndex !== -1) {
+      mockDb.results[existingIndex] = { ...mockDb.results[existingIndex], ...submissionData };
+    } else {
+      mockDb.results.unshift(submissionData);
+    }
+
     return {
       status: 200,
       data: {
@@ -291,6 +377,7 @@ function handleMockFallback(config) {
           totalMarks: exam.total_marks,
           passMark,
           passed,
+          violationCount: attemptViolations.length,
         },
       },
     };
@@ -311,6 +398,19 @@ function handleMockFallback(config) {
         },
       };
     }
+  }
+
+  // Disqualify / Zero Out Cheating student attempt
+  if (url.includes('/results/') && url.includes('/disqualify') && method === 'put') {
+    const attemptId = url.split('/results/')[1].split('/disqualify')[0];
+    const target = mockDb.results.find((r) => r.attempt_id === attemptId) || mockDb.results[0];
+    if (target) {
+      target.score = 0.0;
+      target.passed = false;
+      target.disqualified = true;
+      target.disqualified_reason = 'Cheating violations confirmed by Doctor';
+    }
+    return { status: 200, data: { message: 'Attempt disqualified and zeroed out successfully' } };
   }
 
   if (url.includes('/results/') && url.includes('/score') && method === 'put') {

@@ -1,11 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 /**
  * Hook to enforce anti-screenshot and content protection deterrents
  * during exam taking and PDF viewing.
  */
-export function useAntiScreenshot(enabled = true) {
+export function useAntiScreenshot(enabled = true, onViolation = null) {
   const [blurred, setBlurred] = useState(false);
+  const lastViolationTimeRef = useRef(0);
+
+  const reportViolation = (type, label) => {
+    const now = Date.now();
+    // 1500ms cooldown to prevent spamming identical violations
+    if (now - lastViolationTimeRef.current > 1500) {
+      lastViolationTimeRef.current = now;
+      if (typeof onViolation === 'function') {
+        onViolation({
+          type,
+          label,
+          timestamp: new Date().toLocaleTimeString(),
+        });
+      }
+    }
+  };
 
   useEffect(() => {
     if (!enabled) return;
@@ -22,6 +38,7 @@ export function useAntiScreenshot(enabled = true) {
     // 1. Block right click
     const handleContextMenu = (e) => {
       e.preventDefault();
+      reportViolation('contextmenu', 'Right Click / Context Menu Attempt');
       return false;
     };
 
@@ -32,6 +49,7 @@ export function useAntiScreenshot(enabled = true) {
         e.preventDefault();
         wipeClipboard();
         setBlurred(true);
+        reportViolation('screenshot', 'Screenshot Attempt (PrintScreen Key)');
         return false;
       }
 
@@ -42,6 +60,7 @@ export function useAntiScreenshot(enabled = true) {
       ) {
         wipeClipboard();
         setBlurred(true);
+        reportViolation('screenshot', 'Screen Capture Attempt (Snipping Tool / Shortcut)');
       }
 
       // Print (Ctrl/Cmd + P), Save (Ctrl/Cmd + S), Copy (Ctrl/Cmd + C)
@@ -50,6 +69,7 @@ export function useAntiScreenshot(enabled = true) {
         (e.key === 'p' || e.key === 'P' || e.key === 's' || e.key === 'S' || e.key === 'c' || e.key === 'C')
       ) {
         e.preventDefault();
+        reportViolation('copy_print', `Restricted Key Combination (${e.ctrlKey ? 'Ctrl' : 'Cmd'} + ${e.key.toUpperCase()})`);
         return false;
       }
 
@@ -59,6 +79,7 @@ export function useAntiScreenshot(enabled = true) {
         ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c'))
       ) {
         e.preventDefault();
+        reportViolation('devtools', 'Developer Tools / Inspection Attempt');
         return false;
       }
     };
@@ -68,6 +89,7 @@ export function useAntiScreenshot(enabled = true) {
       if (document.hidden) {
         wipeClipboard();
         setBlurred(true);
+        reportViolation('tab_switch', 'Tab Switch / Backgrounded Browser Tab');
       }
     };
 
@@ -75,6 +97,7 @@ export function useAntiScreenshot(enabled = true) {
     const handleBlur = () => {
       wipeClipboard();
       setBlurred(true);
+      reportViolation('window_defocus', 'Window Defocus / Desktop Overlay (Snipping Tool or Alt-Tab)');
     };
 
     // 5. Continuous heartbeat: detect OS-level overlays or lost focus

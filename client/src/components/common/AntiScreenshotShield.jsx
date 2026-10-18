@@ -3,10 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { useAntiScreenshot } from '../../hooks/useAntiScreenshot';
 import { useAuth } from '../../context/AuthContext';
 
-export default function AntiScreenshotShield({ children, enabled = true }) {
+export default function AntiScreenshotShield({
+  children,
+  enabled = true,
+  onViolation = null,
+  violationCount = 0,
+}) {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const { blurred, resume } = useAntiScreenshot(enabled);
+  const { blurred, resume } = useAntiScreenshot(enabled, onViolation);
 
   const watermarkText = user
     ? `CommerceHub · ${user.name} (${user.studentId || user.email})`
@@ -87,7 +92,26 @@ export default function AntiScreenshotShield({ children, enabled = true }) {
             cursor: 'pointer',
           }}
         >
-          <div style={{ fontSize: '52px', marginBottom: '16px', filter: 'drop-shadow(0 0 15px rgba(99,102,241,0.5))' }}>🛡️</div>
+          <div style={{ fontSize: '52px', marginBottom: '16px', filter: 'drop-shadow(0 0 15px rgba(239,68,68,0.6))' }}>🚨</div>
+          
+          {violationCount > 0 && (
+            <div
+              style={{
+                display: 'inline-block',
+                background: 'rgba(239, 68, 68, 0.2)',
+                border: '1px solid #ef4444',
+                color: '#fca5a5',
+                padding: '6px 16px',
+                borderRadius: '999px',
+                fontSize: '13px',
+                fontWeight: 700,
+                marginBottom: '12px',
+              }}
+            >
+              ⚠️ {t('antiScreenshot.violationAlert', { count: violationCount })}
+            </div>
+          )}
+
           <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#f8fafc', marginBottom: '8px' }}>
             {t('antiScreenshot.warningTitle')}
           </h3>

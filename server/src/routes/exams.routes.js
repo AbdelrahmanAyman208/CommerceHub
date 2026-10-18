@@ -684,6 +684,50 @@ router.put('/:id/autosave', authenticate, requireStudent, validate(autosaveSchem
 });
 
 /**
+ * POST /api/exams/:id/violation
+ * Log real-time anti-cheat violation (screenshots, tab switches) and notify professors
+ */
+router.post('/:id/violation', authenticate, requireStudent, async (req, res, next) => {
+  try {
+    const examId = req.params.id;
+    const studentId = req.user.id;
+    const { type, label, timestamp } = req.body;
+
+    // Fetch student info and exam title
+    const infoRes = await pool.query(
+      `SELECT u.name, u.student_id, e.title, e.title_ar
+       FROM users u, exams e
+       WHERE u.id = $1 AND e.id = $2`,
+      [studentId, examId]
+    );
+
+    if (infoRes.rows.length > 0) {
+      const { name, student_id, title, title_ar } = infoRes.rows[0];
+      const violationLabel = label || type || 'Security Violation';
+
+      // Insert notification for admin/instructors
+      await pool.query(
+        `INSERT INTO notifications (user_id, type, title, title_ar, body, body_ar)
+         SELECT u.id, 'exam_published'::notification_type,
+                $1, $2, $3, $4
+         FROM users u
+         WHERE u.role IN ('super_admin', 'admin')`,
+        [
+          `🚨 Cheating Attempt Detected: ${name}`,
+          `🚨 رصد محاولة غش: ${name}`,
+          `Student ${name} (${student_id || ''}) triggered ${violationLabel} during exam "${title}".`,
+          `قام الطالب ${name} (${student_id || ''}) بمحاولة ${violationLabel} أثناء امتحان "${title_ar || title}".`,
+        ]
+      ).catch(() => {});
+    }
+
+    res.json({ status: 'logged', message: 'Violation logged and notified to professor' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * POST /api/exams/:id/submit
  * Submit exam attempt (idempotent, server-side timer enforcement)
  */

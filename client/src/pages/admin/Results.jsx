@@ -10,6 +10,7 @@ export default function Results() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedAttempt, setSelectedAttempt] = useState(null);
+  const [investigatingAttempt, setInvestigatingAttempt] = useState(null);
   const [newScore, setNewScore] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -53,6 +54,25 @@ export default function Results() {
       setErrorMsg(err.response?.data?.error || 'Failed to update score');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDisqualifyAttempt = async (attempt) => {
+    if (
+      !window.confirm(
+        isAr
+          ? 'هل أنت متأكد من تصفير درجة هذا الامتحان وإلغائه بسبب ثبوت محاولات الغش؟'
+          : 'Are you sure you want to zero out this exam due to verified cheating violations?'
+      )
+    ) {
+      return;
+    }
+    try {
+      await api.put(`/results/${attempt.attempt_id}/disqualify`);
+      setInvestigatingAttempt(null);
+      fetchResults();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to disqualify attempt');
     }
   };
 
@@ -105,6 +125,7 @@ export default function Results() {
                 <th>{t('results.score')}</th>
                 <th>{t('exams.passMark')}</th>
                 <th>{t('results.status')}</th>
+                <th>{t('results.integrity')}</th>
                 <th>{t('results.submittedAt')}</th>
                 <th>{t('common.actions')}</th>
               </tr>
@@ -113,6 +134,8 @@ export default function Results() {
               {results.map((r) => {
                 const examTitle = isAr && r.exam_title_ar ? r.exam_title_ar : r.exam_title;
                 const passed = r.passed;
+                const hasViolations = r.violation_count > 0 || r.cheating_flag || (r.violations && r.violations.length > 0);
+                const violationTotal = r.violation_count || (r.violations ? r.violations.length : (r.cheating_flag ? 1 : 0));
 
                 return (
                   <tr key={r.attempt_id}>
@@ -145,6 +168,36 @@ export default function Results() {
                         {passed ? t('exams.passed') : t('exams.failed')}
                       </span>
                     </td>
+                    <td>
+                      {hasViolations ? (
+                        <button
+                          type="button"
+                          onClick={() => setInvestigatingAttempt(r)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '8px',
+                            border: '1px solid #ef4444',
+                            background: 'rgba(239, 68, 68, 0.18)',
+                            color: '#fca5a5',
+                            fontSize: '11.5px',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            boxShadow: '0 0 10px rgba(239, 68, 68, 0.25)',
+                          }}
+                          title={isAr ? 'اضغط لعرض تفاصيل مخالفات الغش' : 'Click to inspect cheating violation audit'}
+                        >
+                          <span>🚨</span>
+                          <span>{t('results.cheatingFlagged')} ({violationTotal})</span>
+                        </button>
+                      ) : (
+                        <span className="badge-emerald" style={{ fontSize: '11.5px', padding: '4px 8px' }}>
+                          🛡️ {t('results.cleanRecord')}
+                        </span>
+                      )}
+                    </td>
                     <td style={{ color: '#94a3b8', fontSize: '12px' }}>
                       {new Date(r.submitted_at).toLocaleString()}
                     </td>
@@ -171,6 +224,122 @@ export default function Results() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Cheating Investigation Audit Modal */}
+      {investigatingAttempt && (
+        <div className="modal-backdrop" onClick={() => setInvestigatingAttempt(null)}>
+          <div
+            className="modal-card"
+            style={{
+              maxWidth: '560px',
+              border: '1px solid rgba(239, 68, 68, 0.45)',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.7), 0 0 25px rgba(239, 68, 68, 0.2)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '24px' }}>🚨</span>
+                <h3 style={{ margin: 0, color: '#f87171' }}>{t('results.auditTitle')}</h3>
+              </div>
+              <button onClick={() => setInvestigatingAttempt(null)} className="modal-close-btn">
+                ✕
+              </button>
+            </div>
+
+            {/* Student metadata */}
+            <div
+              style={{
+                padding: '12px 16px',
+                background: 'rgba(30, 41, 59, 0.7)',
+                borderRadius: '10px',
+                margin: '14px 0',
+                fontSize: '13px',
+                border: '1px solid var(--color-border, #334155)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <strong style={{ color: '#f8fafc', fontSize: '15px' }}>{investigatingAttempt.student_name}</strong>
+                <span className="id-badge">{investigatingAttempt.student_number}</span>
+              </div>
+              <div style={{ color: '#94a3b8', fontSize: '12px' }}>
+                {investigatingAttempt.student_email}
+              </div>
+              <div style={{ color: '#cbd5e1', marginTop: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                <span>{isAr && investigatingAttempt.exam_title_ar ? investigatingAttempt.exam_title_ar : investigatingAttempt.exam_title}</span>
+                <strong style={{ color: investigatingAttempt.passed ? '#10b981' : '#ef4444' }}>
+                  {t('results.score')}: {investigatingAttempt.score} / {investigatingAttempt.total_marks}
+                </strong>
+              </div>
+            </div>
+
+            <h4 style={{ fontSize: '12px', textTransform: 'uppercase', color: '#94a3b8', margin: '14px 0 8px 0', letterSpacing: '0.05em' }}>
+              ⏱️ {t('results.auditTimeline')}
+            </h4>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
+              {investigatingAttempt.violations && investigatingAttempt.violations.length > 0 ? (
+                investigatingAttempt.violations.map((v, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '10px 14px',
+                      background: 'rgba(239, 68, 68, 0.09)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '12.5px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '16px' }}>{v.type === 'screenshot' ? '📸' : '🔀'}</span>
+                      <span style={{ fontWeight: 600, color: '#fca5a5' }}>{v.label}</span>
+                    </div>
+                    <span style={{ color: '#94a3b8', fontSize: '11px', whiteSpace: 'nowrap' }}>{v.timestamp}</span>
+                  </div>
+                ))
+              ) : (
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    background: 'rgba(239, 68, 68, 0.09)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    borderRadius: '8px',
+                    color: '#fca5a5',
+                    fontSize: '13px',
+                  }}
+                >
+                  ⚠️ {t('antiScreenshot.warningMessage')}
+                </div>
+              )}
+            </div>
+
+            {/* Modal actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '22px', alignItems: 'center' }}>
+              {isDoctor && (
+                <button
+                  type="button"
+                  onClick={() => handleDisqualifyAttempt(investigatingAttempt)}
+                  className="btn-danger"
+                  style={{ padding: '10px 18px', fontSize: '13px', fontWeight: 700 }}
+                >
+                  🚫 {t('results.disqualify')}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setInvestigatingAttempt(null)}
+                className="btn-secondary"
+                style={{ padding: '10px 18px', fontSize: '13px' }}
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
