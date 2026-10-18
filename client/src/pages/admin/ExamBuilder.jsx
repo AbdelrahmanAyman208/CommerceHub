@@ -5,6 +5,7 @@ import api from '../../api/client';
 export default function ExamBuilder({ exam, onBack }) {
   const { t, i18n } = useTranslation();
   const [questions, setQuestions] = useState([]);
+  const [currentExam, setCurrentExam] = useState(exam);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -30,7 +31,11 @@ export default function ExamBuilder({ exam, onBack }) {
     try {
       const { data } = await api.get(`/exams/${exam.id}`);
       setQuestions(data.questions || []);
+      if (data.exam) {
+        setCurrentExam(data.exam);
+      }
     } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -52,13 +57,25 @@ export default function ExamBuilder({ exam, onBack }) {
     e.preventDefault();
     setSubmitting(true);
 
-    const payloadOptions =
-      qType === 'true_false'
-        ? [
-            { key: 'A', text: 'True', text_ar: 'صواب' },
-            { key: 'B', text: 'False', text_ar: 'خطأ' },
-          ]
-        : options;
+    let payloadOptions;
+    if (qType === 'true_false') {
+      payloadOptions = [
+        { key: 'A', text: 'True', text_ar: 'صواب' },
+        { key: 'B', text: 'False', text_ar: 'خطأ' },
+      ];
+    } else {
+      payloadOptions = options.filter((o) => o.text && o.text.trim().length > 0);
+      if (payloadOptions.length < 2) {
+        alert(isAr ? 'يجب إدخال خيارين على الأقل' : 'Please provide at least 2 valid options');
+        setSubmitting(false);
+        return;
+      }
+      if (!payloadOptions.some((o) => o.key === correctKey)) {
+        alert(isAr ? 'يرجى تحديد إجابة صحيحة من بين الخيارات المدخلة' : 'Please select a correct answer from the filled options');
+        setSubmitting(false);
+        return;
+      }
+    }
 
     try {
       await api.post(`/exams/${exam.id}/questions`, {
@@ -74,6 +91,14 @@ export default function ExamBuilder({ exam, onBack }) {
       setShowAddModal(false);
       setText('');
       setTextAr('');
+      setPoints('5');
+      setCorrectKey('A');
+      setOptions([
+        { key: 'A', text: '', text_ar: '' },
+        { key: 'B', text: '', text_ar: '' },
+        { key: 'C', text: '', text_ar: '' },
+        { key: 'D', text: '', text_ar: '' },
+      ]);
       fetchQuestions();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to add question');
@@ -92,7 +117,10 @@ export default function ExamBuilder({ exam, onBack }) {
     }
   };
 
-  const examTitle = isAr && exam.title_ar ? exam.title_ar : exam.title;
+  const activeExam = currentExam || exam;
+  const examTitle = isAr && activeExam.title_ar ? activeExam.title_ar : activeExam.title;
+  const totalAllocatedPoints = questions.reduce((sum, q) => sum + (parseFloat(q.points) || 0), 0);
+  const examTargetMarks = parseFloat(activeExam.total_marks) || 0;
 
   return (
     <div className="page-content">
@@ -102,10 +130,15 @@ export default function ExamBuilder({ exam, onBack }) {
             ← {t('common.back')} {isAr ? 'إلى الامتحانات' : 'to Exams'}
           </button>
           <h2>{t('questions.builderTitle')} — {examTitle}</h2>
-          <div style={{ display: 'flex', gap: '16px', marginTop: '6px', fontSize: '13px', color: '#94a3b8' }}>
-            <span>💯 {t('exams.totalMarks')}: {exam.total_marks}</span>
-            <span style={{ color: '#10b981', fontWeight: 600 }}>🎯 {t('exams.passMark')}: {exam.pass_mark} (50%)</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginTop: '6px', fontSize: '13px', color: '#94a3b8' }}>
+            <span>💯 {t('exams.totalMarks')}: {activeExam.total_marks}</span>
+            <span style={{ color: '#10b981', fontWeight: 600 }}>
+              🎯 {t('exams.passMark')}: {activeExam.pass_mark} ({((parseFloat(activeExam.pass_mark) / (parseFloat(activeExam.total_marks) || 1)) * 100).toFixed(0)}%)
+            </span>
             <span>📝 {isAr ? 'عدد الأسئلة:' : 'Questions:'} {questions.length}</span>
+            <span style={{ color: totalAllocatedPoints === examTargetMarks ? '#38bdf8' : '#f59e0b', fontWeight: 600 }}>
+              📊 {isAr ? 'مجموع الدرجات:' : 'Points Sum:'} {totalAllocatedPoints} / {activeExam.total_marks}
+            </span>
           </div>
         </div>
         <button onClick={() => setShowAddModal(true)} className="btn-primary">
@@ -126,7 +159,7 @@ export default function ExamBuilder({ exam, onBack }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {questions.map((q, idx) => {
-            const qOpts = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
+            const qOpts = (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) || [];
             const qText = isAr && q.text_ar ? q.text_ar : q.text;
 
             return (
@@ -264,22 +297,37 @@ export default function ExamBuilder({ exam, onBack }) {
                       {isAr ? 'خيارات الإجابة والحل الصحيح:' : 'Options & Correct Answer:'}
                     </label>
                     {options.map((opt, i) => (
-                      <div key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                        <input
-                          type="radio"
-                          name="correctOption"
-                          checked={correctKey === opt.key}
-                          onChange={() => setCorrectKey(opt.key)}
-                          title="Mark as correct answer"
-                        />
-                        <span style={{ fontWeight: 700, color: '#60a5fa', width: '20px' }}>{opt.key}</span>
+                      <div
+                        key={opt.key}
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginBottom: '10px',
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <input
+                            type="radio"
+                            name="correctOption"
+                            checked={correctKey === opt.key}
+                            onChange={() => setCorrectKey(opt.key)}
+                            title="Mark as correct answer"
+                          />
+                          <span style={{ fontWeight: 700, color: '#60a5fa', width: '20px' }}>{opt.key}</span>
+                        </div>
                         <input
                           type="text"
                           className="input-field"
-                          placeholder={`Option ${opt.key} (EN)`}
+                          placeholder={`Option ${opt.key} (EN)${i < 2 ? ' *' : ''}`}
                           value={opt.text}
                           onChange={(e) => handleOptionChange(i, 'text', e.target.value)}
-                          required
+                          required={i < 2}
+                          style={{ flex: '1 1 160px', minWidth: '130px' }}
                         />
                         <input
                           type="text"
@@ -287,6 +335,7 @@ export default function ExamBuilder({ exam, onBack }) {
                           placeholder={`الخيار ${opt.key} (عربي)`}
                           value={opt.text_ar}
                           onChange={(e) => handleOptionChange(i, 'text_ar', e.target.value)}
+                          style={{ flex: '1 1 160px', minWidth: '130px' }}
                         />
                       </div>
                     ))}

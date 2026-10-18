@@ -30,7 +30,7 @@ router.get('/', authenticate, async (req, res, next) => {
       const result = await pool.query(
         `SELECT e.id, e.course_id, c.title AS course_title, c.title_ar AS course_title_ar,
                 e.title, e.title_ar, e.window_start, e.window_end, e.duration_minutes,
-                e.total_marks, ROUND(e.total_marks * 0.5, 2) AS pass_mark,
+                e.total_marks, COALESCE(e.pass_mark, ROUND(e.total_marks * 0.5, 2)) AS pass_mark,
                 e.max_attempts, e.score_policy,
                 COUNT(a.id)::int AS my_attempts_count,
                 MAX(a.score) AS my_best_score,
@@ -60,7 +60,7 @@ router.get('/', authenticate, async (req, res, next) => {
     let query = `
       SELECT e.id, e.course_id, c.title AS course_title, c.title_ar AS course_title_ar,
              e.title, e.title_ar, e.window_start, e.window_end, e.duration_minutes,
-             e.total_marks, ROUND(e.total_marks * 0.5, 2) AS pass_mark,
+             e.total_marks, COALESCE(e.pass_mark, ROUND(e.total_marks * 0.5, 2)) AS pass_mark,
              e.max_attempts, e.score_policy, e.randomize_questions, e.randomize_options,
              e.published, e.created_at,
              COUNT(DISTINCT q.id)::int AS question_count,
@@ -92,7 +92,7 @@ router.get('/', authenticate, async (req, res, next) => {
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
     const examRes = await pool.query(
-      `SELECT e.*, ROUND(e.total_marks * 0.5, 2) AS pass_mark,
+      `SELECT e.*, COALESCE(e.pass_mark, ROUND(e.total_marks * 0.5, 2)) AS pass_mark,
               c.title AS course_title, c.title_ar AS course_title_ar
        FROM exams e
        JOIN courses c ON e.course_id = c.id
@@ -140,6 +140,7 @@ router.post('/', authenticate, requireAdmin, validate(createExamSchema), async (
       window_end,
       duration_minutes,
       total_marks,
+      pass_mark,
       max_attempts,
       score_policy,
       randomize_questions,
@@ -147,13 +148,17 @@ router.post('/', authenticate, requireAdmin, validate(createExamSchema), async (
       published,
     } = req.body;
 
+    const finalPassMark = pass_mark !== undefined && pass_mark !== null
+      ? parseFloat(pass_mark)
+      : Math.round(parseFloat(total_marks) * 0.5 * 100) / 100;
+
     const result = await pool.query(
       `INSERT INTO exams (
         course_id, title, title_ar, window_start, window_end,
-        duration_minutes, total_marks, max_attempts, score_policy,
+        duration_minutes, total_marks, pass_mark, max_attempts, score_policy,
         randomize_questions, randomize_options, published
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING *, ROUND(total_marks * 0.5, 2) AS pass_mark`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *, COALESCE(pass_mark, ROUND(total_marks * 0.5, 2)) AS pass_mark`,
       [
         course_id,
         title,
@@ -162,6 +167,7 @@ router.post('/', authenticate, requireAdmin, validate(createExamSchema), async (
         window_end,
         duration_minutes,
         total_marks,
+        finalPassMark,
         max_attempts || 1,
         score_policy || 'best',
         randomize_questions || false,
@@ -183,7 +189,7 @@ router.put('/:id', authenticate, requireAdmin, validate(updateExamSchema), async
   try {
     const fields = [
       'course_id', 'title', 'title_ar', 'window_start', 'window_end',
-      'duration_minutes', 'total_marks', 'max_attempts', 'score_policy',
+      'duration_minutes', 'total_marks', 'pass_mark', 'max_attempts', 'score_policy',
       'randomize_questions', 'randomize_options', 'published'
     ];
 
@@ -205,7 +211,7 @@ router.put('/:id', authenticate, requireAdmin, validate(updateExamSchema), async
       UPDATE exams
       SET ${updates.join(', ')}, updated_at = NOW()
       WHERE id = $1
-      RETURNING *, ROUND(total_marks * 0.5, 2) AS pass_mark
+      RETURNING *, COALESCE(pass_mark, ROUND(total_marks * 0.5, 2)) AS pass_mark
     `;
 
     const result = await pool.query(query, params);
@@ -379,7 +385,7 @@ router.post('/:id/start', authenticate, requireStudent, async (req, res, next) =
 
     // 1. Check exam existence and publication
     const examRes = await client.query(
-      `SELECT e.*, (e.total_marks * 0.5) AS pass_mark
+      `SELECT e.*, COALESCE(e.pass_mark, ROUND(e.total_marks * 0.5, 2)) AS pass_mark
        FROM exams e
        WHERE e.id = $1`,
       [examId]
@@ -534,7 +540,7 @@ router.get('/:id/resume', authenticate, requireStudent, async (req, res, next) =
     // Find active unsubmitted attempt
     const attemptRes = await pool.query(
       `SELECT a.*, e.title, e.title_ar, e.duration_minutes, e.total_marks,
-              (e.total_marks * 0.5) AS pass_mark
+              COALESCE(e.pass_mark, ROUND(e.total_marks * 0.5, 2)) AS pass_mark
        FROM exam_attempts a
        JOIN exams e ON a.exam_id = e.id
        WHERE a.exam_id = $1 AND a.student_id = $2 AND a.submitted_at IS NULL AND a.expires_at > NOW()`,
@@ -640,26 +646,34 @@ router.put('/:id/autosave', authenticate, requireStudent, validate(autosaveSchem
     }
 
     const attempt = attemptRes.rows[0];
-    const expiryWithGrace = new Date(new Date(attempt.expires_at).getTime() + 5000);
+    const expiryWithGrace = new Date(new Date(attempt.expires_at).getTime() + 15000);
     if (new Date() > expiryWithGrace) {
       return res.status(400).json({ error: 'Exam attempt has expired' });
     }
 
-    await client.query('BEGIN');
+    const validAnswers = answers.filter((ans) => ans && ans.question_id);
 
-    for (const ans of answers) {
-      if (ans.question_id) {
-        await client.query(
-          `INSERT INTO answers (attempt_id, question_id, selected_key, updated_at)
-           VALUES ($1, $2, $3, NOW())
-           ON CONFLICT (attempt_id, question_id)
-           DO UPDATE SET selected_key = EXCLUDED.selected_key, updated_at = NOW()`,
-          [attempt.id, ans.question_id, ans.selected_key || null]
-        );
-      }
+    if (validAnswers.length > 0) {
+      await client.query('BEGIN');
+
+      const valueClauses = [];
+      const queryParams = [attempt.id];
+      validAnswers.forEach((ans, i) => {
+        const offset = i * 2 + 2;
+        queryParams.push(ans.question_id, ans.selected_key || null);
+        valueClauses.push(`($1, $${offset}, $${offset + 1}, NOW())`);
+      });
+
+      await client.query(
+        `INSERT INTO answers (attempt_id, question_id, selected_key, updated_at)
+         VALUES ${valueClauses.join(', ')}
+         ON CONFLICT (attempt_id, question_id)
+         DO UPDATE SET selected_key = EXCLUDED.selected_key, updated_at = NOW()`,
+        queryParams
+      );
+
+      await client.query('COMMIT');
     }
-
-    await client.query('COMMIT');
     res.json({ status: 'saved', timestamp: new Date().toISOString() });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -708,10 +722,10 @@ router.post('/:id/submit', authenticate, requireStudent, async (req, res, next) 
       });
     }
 
-    // 5-second grace window check
-    const expiryWithGrace = new Date(new Date(attempt.expires_at).getTime() + 5000);
+    // 15-second grace window check for slow networks / latency jitter
+    const expiryWithGrace = new Date(new Date(attempt.expires_at).getTime() + 15000);
     if (new Date() > expiryWithGrace) {
-      logger.warn({ attemptId: attempt.id }, 'Submission arrived after expiration grace window');
+      logger.warn({ attemptId: attempt.id }, 'Submission arrived after 15s expiration grace window');
     }
 
     await client.query(

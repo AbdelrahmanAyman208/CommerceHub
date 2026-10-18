@@ -8,6 +8,7 @@ const createExamSchema = z.object({
   window_end: z.string().datetime(),
   duration_minutes: z.coerce.number().int().min(1, 'Duration must be at least 1 minute'),
   total_marks: z.coerce.number().positive('Total marks must be greater than 0'),
+  pass_mark: z.coerce.number().positive('Pass mark must be greater than 0').optional(),
   max_attempts: z.coerce.number().int().min(1, 'Max attempts must be at least 1').default(1),
   score_policy: z.enum(['best', 'latest']).default('best'),
   randomize_questions: z.boolean().default(false),
@@ -16,6 +17,9 @@ const createExamSchema = z.object({
 }).refine((data) => new Date(data.window_end) > new Date(data.window_start), {
   message: 'Window end date must be after window start date',
   path: ['window_end'],
+}).refine((data) => !data.pass_mark || data.pass_mark <= data.total_marks, {
+  message: 'Pass mark cannot exceed total marks',
+  path: ['pass_mark'],
 });
 
 const updateExamSchema = createExamSchema.partial();

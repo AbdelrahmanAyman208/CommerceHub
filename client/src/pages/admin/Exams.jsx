@@ -17,6 +17,7 @@ export default function Exams({ onSelectExamForBuilder }) {
   const [windowEnd, setWindowEnd] = useState('');
   const [duration, setDuration] = useState('60');
   const [totalMarks, setTotalMarks] = useState('20');
+  const [passMark, setPassMark] = useState('10');
   const [maxAttempts, setMaxAttempts] = useState('1'); // Admin selects attempts!
   const [scorePolicy, setScorePolicy] = useState('best');
   const [randomizeQ, setRandomizeQ] = useState(false);
@@ -24,6 +25,14 @@ export default function Exams({ onSelectExamForBuilder }) {
   const [submitting, setSubmitting] = useState(false);
 
   const isAr = i18n.language === 'ar';
+
+  const handleTotalMarksChange = (val) => {
+    setTotalMarks(val);
+    const num = parseFloat(val);
+    if (!isNaN(num) && num > 0) {
+      setPassMark((num * 0.5).toString());
+    }
+  };
 
   const fetchExams = async () => {
     try {
@@ -55,6 +64,7 @@ export default function Exams({ onSelectExamForBuilder }) {
         window_end: new Date(windowEnd).toISOString(),
         duration_minutes: parseInt(duration, 10),
         total_marks: parseFloat(totalMarks),
+        pass_mark: parseFloat(passMark),
         max_attempts: parseInt(maxAttempts, 10), // Admin selection
         score_policy: scorePolicy,
         randomize_questions: randomizeQ,
@@ -158,7 +168,7 @@ export default function Exams({ onSelectExamForBuilder }) {
                     💯 {exam.total_marks} {isAr ? 'درجة كلية' : 'total marks'}
                   </div>
                   <div style={{ color: '#10b981', fontWeight: 600 }}>
-                    🎯 {exam.pass_mark} {isAr ? 'حد النجاح (50%)' : 'pass mark (50%)'}
+                    🎯 {exam.pass_mark} ({((parseFloat(exam.pass_mark) / (parseFloat(exam.total_marks) || 1)) * 100).toFixed(0)}%) {isAr ? 'حد النجاح' : 'pass mark'}
                   </div>
                 </div>
 
@@ -271,8 +281,9 @@ export default function Exams({ onSelectExamForBuilder }) {
                       type="number"
                       className="input-field"
                       value={totalMarks}
-                      onChange={(e) => setTotalMarks(e.target.value)}
+                      onChange={(e) => handleTotalMarksChange(e.target.value)}
                       min="1"
+                      step="0.5"
                       required
                     />
                   </div>
@@ -290,14 +301,31 @@ export default function Exams({ onSelectExamForBuilder }) {
                   </div>
                 </div>
 
-                {/* 50% Pass Mark Dynamic Indicator */}
-                <div style={{ marginTop: '14px', padding: '10px 14px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '13px', color: '#10b981', fontWeight: 600 }}>
-                    🎯 {t('exams.passMark')}
-                  </span>
-                  <span style={{ fontSize: '15px', color: '#10b981', fontWeight: 800 }}>
-                    {passMarkPreview} / {totalMarks || 0}
-                  </span>
+                {/* Flexible Pass Mark input & preview */}
+                <div style={{ marginTop: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'center' }}>
+                  <div>
+                    <label style={{ color: '#10b981', fontWeight: 600 }}>
+                      🎯 {t('exams.passMark')} ({isAr ? 'درجة النجاح المخصصة' : 'Custom Passing Mark'})
+                    </label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      value={passMark}
+                      onChange={(e) => setPassMark(e.target.value)}
+                      min="0.5"
+                      max={totalMarks || 100}
+                      step="0.5"
+                      required
+                    />
+                  </div>
+                  <div style={{ padding: '10px 14px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                      {isAr ? 'نسبة النجاح المطلوبة' : 'Required Pass Percentage'}
+                    </div>
+                    <div style={{ fontSize: '18px', color: '#10b981', fontWeight: 800, marginTop: '2px' }}>
+                      {passMark} / {totalMarks || 0} ({((parseFloat(passMark) / (parseFloat(totalMarks) || 1)) * 100).toFixed(0)}%)
+                    </div>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '20px', marginTop: '16px' }}>

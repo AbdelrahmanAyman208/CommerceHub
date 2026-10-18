@@ -123,11 +123,21 @@ router.post('/import', uploadCsv.single('file'), async (req, res, next) => {
 
     await client.query('BEGIN');
 
+    const allEmails = records
+      .map((r) => (r.email || r.Email || r['البريد'] || r['البريد الإلكتروني'] || '').trim().toLowerCase())
+      .filter(Boolean);
+
+    const existingCheck = await client.query(
+      'SELECT LOWER(email) AS email FROM users WHERE LOWER(email) = ANY($1::text[])',
+      [allEmails]
+    );
+    const existingEmailSet = new Set(existingCheck.rows.map((row) => row.email));
+
     for (let i = 0; i < records.length; i++) {
       const row = records[i];
       // Support english and arabic headers
-      const name = row.name || row.Name || row['الاسم'] || row['اسم الطالب'];
-      const email = row.email || row.Email || row['البريد'] || row['البريد الإلكتروني'];
+      const name = (row.name || row.Name || row['الاسم'] || row['اسم الطالب'] || '').trim();
+      const email = (row.email || row.Email || row['البريد'] || row['البريد الإلكتروني'] || '').trim();
       const customPassword = row.password || row.Password;
 
       if (!name || !email) {
@@ -135,12 +145,13 @@ router.post('/import', uploadCsv.single('file'), async (req, res, next) => {
         continue;
       }
 
-      // Check if email already exists
-      const existing = await client.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
-      if (existing.rows.length > 0) {
+      const lowerEmail = email.toLowerCase();
+      // O(1) in-memory set lookup instead of O(N) database queries
+      if (existingEmailSet.has(lowerEmail)) {
         errors.push({ row: i + 1, email, error: 'Email already exists' });
         continue;
       }
+      existingEmailSet.add(lowerEmail);
 
       // Generate 8-digit ID
       const seqRes = await client.query("SELECT nextval('student_id_seq')::text AS next_id");

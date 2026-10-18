@@ -85,6 +85,7 @@ CREATE TABLE exams (
   window_end TIMESTAMPTZ NOT NULL,
   duration_minutes INTEGER NOT NULL CHECK (duration_minutes > 0),
   total_marks DECIMAL(6,2) NOT NULL CHECK (total_marks > 0),
+  pass_mark DECIMAL(6,2),
   max_attempts INTEGER NOT NULL DEFAULT 1 CHECK (max_attempts >= 1),
   score_policy score_policy_type NOT NULL DEFAULT 'best',
   randomize_questions BOOLEAN NOT NULL DEFAULT false,

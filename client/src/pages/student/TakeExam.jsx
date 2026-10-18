@@ -210,7 +210,7 @@ export default function TakeExam({ examId, onFinish }) {
             </span>
 
             <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '14px' }}>
-              🎯 {t('exams.passMark')}: {examResult.passMark || exam?.passMark} (50%)
+              🎯 {t('exams.passMark')}: {examResult.passMark || exam?.passMark} ({((parseFloat(examResult.passMark || exam?.passMark || 0) / (parseFloat(examResult.totalMarks || exam?.totalMarks || 1))) * 100).toFixed(0)}%)
               <br />
               <small style={{ color: '#64748b' }}>{t('exams.passRuleNotice')}</small>
             </div>
@@ -239,7 +239,7 @@ export default function TakeExam({ examId, onFinish }) {
             </h3>
             <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
               <span>
-                🎯 {t('exams.passMark')}: {exam?.passMark} / {exam?.totalMarks} (50%)
+                🎯 {t('exams.passMark')}: {exam?.passMark} / {exam?.totalMarks} ({((parseFloat(exam?.passMark || 0) / (parseFloat(exam?.totalMarks || 1))) * 100).toFixed(0)}%)
               </span>
               <span>
                 {savingStatus === 'saving' ? (

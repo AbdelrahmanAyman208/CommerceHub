@@ -17,8 +17,8 @@ router.get('/my', authenticate, requireStudent, async (req, res, next) => {
       `SELECT a.id AS attempt_id, a.attempt_number, a.score, a.graded,
               a.started_at, a.submitted_at,
               e.id AS exam_id, e.title, e.title_ar, e.total_marks,
-              ROUND(e.total_marks * 0.5, 2) AS pass_mark,
-              CASE WHEN a.score >= (e.total_marks * 0.5) THEN true ELSE false END AS passed,
+              COALESCE(e.pass_mark, ROUND(e.total_marks * 0.5, 2)) AS pass_mark,
+              CASE WHEN a.score >= COALESCE(e.pass_mark, e.total_marks * 0.5) THEN true ELSE false END AS passed,
               c.id AS course_id, c.title AS course_title, c.title_ar AS course_title_ar
        FROM exam_attempts a
        JOIN exams e ON a.exam_id = e.id
@@ -72,8 +72,8 @@ router.get('/', authenticate, requireAdmin, async (req, res, next) => {
              a.started_at, a.submitted_at,
              u.id AS student_id, u.student_id AS student_number, u.name AS student_name, u.email AS student_email,
              e.id AS exam_id, e.title AS exam_title, e.title_ar AS exam_title_ar, e.total_marks,
-             ROUND(e.total_marks * 0.5, 2) AS pass_mark,
-             CASE WHEN a.score >= (e.total_marks * 0.5) THEN true ELSE false END AS passed,
+             COALESCE(e.pass_mark, ROUND(e.total_marks * 0.5, 2)) AS pass_mark,
+             CASE WHEN a.score >= COALESCE(e.pass_mark, e.total_marks * 0.5) THEN true ELSE false END AS passed,
              c.id AS course_id, c.title AS course_title, c.title_ar AS course_title_ar
       ${baseQuery}
       ORDER BY a.submitted_at DESC
@@ -98,8 +98,8 @@ router.get('/:attemptId', authenticate, async (req, res, next) => {
     const attemptRes = await pool.query(
       `SELECT a.*, u.name AS student_name, u.student_id AS student_number,
               e.title AS exam_title, e.title_ar AS exam_title_ar, e.total_marks,
-              ROUND(e.total_marks * 0.5, 2) AS pass_mark,
-              CASE WHEN a.score >= (e.total_marks * 0.5) THEN true ELSE false END AS passed
+              COALESCE(e.pass_mark, ROUND(e.total_marks * 0.5, 2)) AS pass_mark,
+              CASE WHEN a.score >= COALESCE(e.pass_mark, e.total_marks * 0.5) THEN true ELSE false END AS passed
        FROM exam_attempts a
        JOIN users u ON a.student_id = u.id
        JOIN exams e ON a.exam_id = e.id

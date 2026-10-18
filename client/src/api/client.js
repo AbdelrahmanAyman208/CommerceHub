@@ -135,7 +135,7 @@ function handleMockFallback(config) {
         id: `e${Date.now()}`,
         ...body,
         total_marks: totalMarks,
-        pass_mark: totalMarks * 0.5, // 50% rule
+        pass_mark: body.pass_mark !== undefined ? parseFloat(body.pass_mark) : totalMarks * 0.5,
         my_attempts_count: 0,
         my_best_score: null,
         published: true,
@@ -149,10 +149,80 @@ function handleMockFallback(config) {
     }
   }
 
-  if (url.match(/\/exams\/e\d+$/)) {
-    const examId = url.split('/exams/')[1];
+  // Handle /exams/:id/questions (POST question, DELETE question, PUT question)
+  if (url.includes('/exams/') && url.includes('/questions')) {
+    const parts = url.split('?')[0].split('/');
+    const examsIdx = parts.indexOf('exams');
+    const examId = parts[examsIdx + 1];
+    const questionsIdx = parts.indexOf('questions');
+    const qid = parts[questionsIdx + 1];
+
+    if (!mockDb.questions[examId]) {
+      mockDb.questions[examId] = [];
+    }
+
+    if (method === 'post') {
+      const body = typeof config.data === 'string' ? JSON.parse(config.data) : (config.data || {});
+      const newQuestion = {
+        id: `q${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        exam_id: examId,
+        type: body.type || 'mcq',
+        text: body.text || '',
+        text_ar: body.text_ar || '',
+        options: body.options || [],
+        correct_key: body.correct_key || 'A',
+        points: parseFloat(body.points) || 5,
+        sort_order: body.sort_order || (mockDb.questions[examId].length + 1),
+        created_at: new Date().toISOString(),
+      };
+      mockDb.questions[examId].push(newQuestion);
+
+      const targetExam = mockDb.exams.find((e) => e.id === examId);
+      if (targetExam) {
+        targetExam.question_count = mockDb.questions[examId].length;
+      }
+
+      return { status: 201, data: { question: newQuestion, message: 'Question saved successfully' } };
+    }
+
+    if (method === 'delete') {
+      if (qid) {
+        mockDb.questions[examId] = mockDb.questions[examId].filter((q) => q.id !== qid);
+        const targetExam = mockDb.exams.find((e) => e.id === examId);
+        if (targetExam) {
+          targetExam.question_count = mockDb.questions[examId].length;
+        }
+      }
+      return { status: 200, data: { message: 'Question deleted successfully' } };
+    }
+
+    if (method === 'put' && qid) {
+      const body = typeof config.data === 'string' ? JSON.parse(config.data) : (config.data || {});
+      const idx = mockDb.questions[examId].findIndex((q) => q.id === qid);
+      if (idx !== -1) {
+        mockDb.questions[examId][idx] = {
+          ...mockDb.questions[examId][idx],
+          ...body,
+          points: body.points !== undefined ? parseFloat(body.points) : mockDb.questions[examId][idx].points,
+        };
+        return { status: 200, data: { question: mockDb.questions[examId][idx] } };
+      }
+      return { status: 404, data: { error: 'Question not found' } };
+    }
+
+    return { status: 200, data: { questions: mockDb.questions[examId] } };
+  }
+
+  // Handle single exam details GET /exams/:id
+  const cleanUrl = url.split('?')[0].replace(/\/+$/, '');
+  const examIdMatch = cleanUrl.match(/^\/exams\/([^/]+)$/);
+  if (examIdMatch && method === 'get') {
+    const examId = examIdMatch[1];
     const exam = mockDb.exams.find((e) => e.id === examId) || mockDb.exams[0];
-    const questions = mockDb.questions[examId] || mockDb.questions.e1;
+    if (!mockDb.questions[examId]) {
+      mockDb.questions[examId] = [];
+    }
+    const questions = mockDb.questions[examId];
     return { status: 200, data: { exam, questions } };
   }
 
@@ -163,15 +233,12 @@ function handleMockFallback(config) {
     return { status: 200, data: { exam } };
   }
 
-  if (url.includes('/questions')) {
-    return { status: 201, data: { message: 'Question saved' } };
-  }
-
   // 6. Exam Taking Flow
   if (url.includes('/exams/') && url.includes('/start')) {
     const examId = url.split('/exams/')[1].split('/start')[0];
     const exam = mockDb.exams.find((e) => e.id === examId) || mockDb.exams[0];
-    const questions = (mockDb.questions[exam.id] || mockDb.questions.e1).map((q) => ({
+    const examQuestions = mockDb.questions[exam.id] || mockDb.questions.e1 || [];
+    const questions = examQuestions.map((q) => ({
       id: q.id,
       type: q.type,
       text: q.text,
@@ -196,7 +263,7 @@ function handleMockFallback(config) {
           title: exam.title,
           title_ar: exam.title_ar,
           totalMarks: exam.total_marks,
-          passMark: exam.total_marks * 0.5, // 50%
+          passMark: exam.pass_mark !== undefined ? exam.pass_mark : (exam.total_marks * 0.5),
         },
         questions,
       },
@@ -212,7 +279,7 @@ function handleMockFallback(config) {
     const exam = mockDb.exams.find((e) => e.id === examId) || mockDb.exams[0];
     exam.my_attempts_count = (exam.my_attempts_count || 0) + 1;
     const score = 15.0; // Sample score
-    const passMark = exam.total_marks * 0.5;
+    const passMark = exam.pass_mark !== undefined ? exam.pass_mark : (exam.total_marks * 0.5);
     const passed = score >= passMark;
     exam.my_best_score = score;
 

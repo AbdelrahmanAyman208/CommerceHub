@@ -26,7 +26,8 @@ async function gradeAttempt(attemptId) {
     // 1. Fetch attempt and exam metadata
     const attemptRes = await client.query(
       `SELECT a.id, a.student_id, a.exam_id, a.graded,
-              e.title, e.title_ar, e.total_marks
+              e.title, e.title_ar, e.total_marks,
+              COALESCE(e.pass_mark, ROUND(e.total_marks * 0.5, 2)) AS pass_mark
        FROM exam_attempts a
        JOIN exams e ON a.exam_id = e.id
        WHERE a.id = $1 FOR UPDATE`,
@@ -71,7 +72,7 @@ async function gradeAttempt(attemptId) {
 
     const finalScore = Math.round(totalEarned * 100) / 100;
     const totalMarks = parseFloat(attempt.total_marks);
-    const passMark = totalMarks * 0.5; // Always 50%
+    const passMark = parseFloat(attempt.pass_mark) || (totalMarks * 0.5);
     const passed = finalScore >= passMark;
 
     // 5. Update attempt
@@ -83,8 +84,8 @@ async function gradeAttempt(attemptId) {
     // 6. Create notification for student
     const title = `Result for ${attempt.title}: ${finalScore} / ${totalMarks} (${passed ? 'Passed' : 'Failed'})`;
     const title_ar = `نتيجة ${attempt.title_ar || attempt.title}: ${finalScore} / ${totalMarks} (${passed ? 'ناجح' : 'راسب'})`;
-    const body = `You scored ${finalScore} out of ${totalMarks}. Minimum pass mark is ${passMark} (50%).`;
-    const body_ar = `حصلت على ${finalScore} من ${totalMarks}. درجة النجاح المطلوبة هي ${passMark} (50%).`;
+    const body = `You scored ${finalScore} out of ${totalMarks}. Minimum pass mark is ${passMark}.`;
+    const body_ar = `حصلت على ${finalScore} من ${totalMarks}. درجة النجاح المطلوبة هي ${passMark}.`;
 
     await client.query(
       `INSERT INTO notifications (user_id, type, title, title_ar, body, body_ar)

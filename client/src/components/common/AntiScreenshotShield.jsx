@@ -4,9 +4,9 @@ import { useAntiScreenshot } from '../../hooks/useAntiScreenshot';
 import { useAuth } from '../../context/AuthContext';
 
 export default function AntiScreenshotShield({ children, enabled = true }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const { blurred } = useAntiScreenshot(enabled);
+  const { blurred, resume } = useAntiScreenshot(enabled);
 
   const watermarkText = user
     ? `CommerceHub · ${user.name} (${user.studentId || user.email})`
@@ -66,6 +66,7 @@ export default function AntiScreenshotShield({ children, enabled = true }) {
       {blurred && enabled && (
         <div
           className="blur-warning-overlay"
+          onClick={resume}
           style={{
             position: 'absolute',
             inset: 0,
@@ -79,15 +80,27 @@ export default function AntiScreenshotShield({ children, enabled = true }) {
             padding: '24px',
             textAlign: 'center',
             borderRadius: '12px',
+            cursor: 'pointer',
           }}
         >
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>🛡️</div>
           <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#f8fafc', marginBottom: '8px' }}>
             {t('antiScreenshot.warningTitle')}
           </h3>
-          <p style={{ maxWidth: '420px', color: '#94a3b8', fontSize: '14px', lineHeight: 1.6 }}>
+          <p style={{ maxWidth: '420px', color: '#94a3b8', fontSize: '14px', lineHeight: 1.6, marginBottom: '20px' }}>
             {t('antiScreenshot.warningMessage')}
           </p>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              resume();
+            }}
+            className="btn-primary"
+            style={{ padding: '10px 24px', fontSize: '14px', borderRadius: '8px' }}
+          >
+            {i18n.language === 'ar' ? 'متابعة الامتحان' : 'Resume Exam'}
+          </button>
         </div>
       )}
     </div>

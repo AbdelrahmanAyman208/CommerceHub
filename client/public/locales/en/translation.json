@@ -114,7 +114,7 @@
     "scoreResult": "Your Score",
     "passed": "PASSED",
     "failed": "FAILED",
-    "passRuleNotice": "Standard university criteria: 50% minimum required to pass.",
+    "passRuleNotice": "Passing requirement is set by the course instructor.",
     "noExams": "No exams available."
   },
   "questions": {
