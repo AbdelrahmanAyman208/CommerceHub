@@ -209,22 +209,35 @@ button {
   color: var(--color-primary-light);
 }
 
+.notification-btn {
+  position: relative;
+}
+
 .notification-badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  top: -3px;
+  right: -3px;
+  min-width: 17px;
+  height: 17px;
+  line-height: 1;
   background: var(--color-error);
   color: white;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 0 4px;
   border-radius: 9999px;
   border: 2px solid var(--color-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 10;
 }
 
 [dir='rtl'] .notification-badge {
-  right: auto;
-  left: -5px;
+  right: -3px;
+  left: auto;
 }
 
 .user-capsule {
@@ -1260,14 +1273,26 @@ button {
   }
 
   .nav-btn {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     padding: 0;
-    font-size: 0.85rem;
+    font-size: 0.95rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+  }
+
+  .notification-badge {
+    min-width: 15px;
+    height: 15px;
+    line-height: 1;
+    font-size: 0.6rem;
+    top: -2px;
+    right: -2px;
+    left: auto;
+    padding: 0 2px;
+    border-width: 1.5px;
   }
 
   .user-capsule {
