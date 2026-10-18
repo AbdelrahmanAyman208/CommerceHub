@@ -30,33 +30,37 @@ export default function AntiScreenshotShield({ children, enabled = true }) {
             position: 'absolute',
             inset: 0,
             pointerEvents: 'none',
-            zIndex: 10,
-            opacity: 0.05,
+            zIndex: 15,
+            opacity: 0.18,
             display: 'flex',
             flexWrap: 'wrap',
-            gap: '80px',
+            gap: '64px',
             alignContent: 'center',
             justifyContent: 'center',
             overflow: 'hidden',
-            fontSize: '14px',
-            fontWeight: 700,
-            transform: 'rotate(-15deg)',
+            fontSize: '15px',
+            fontWeight: 800,
+            letterSpacing: '0.04em',
+            transform: 'rotate(-18deg) scale(1.1)',
+            color: 'var(--color-primary-light, #6366f1)',
           }}
         >
-          {Array.from({ length: 24 }).map((_, i) => (
-            <span key={i} style={{ whiteSpace: 'nowrap' }}>
+          {Array.from({ length: 64 }).map((_, i) => (
+            <span key={i} style={{ whiteSpace: 'nowrap', textShadow: '0 0 1px rgba(0,0,0,0.2)' }}>
               {watermarkText}
             </span>
           ))}
         </div>
       )}
 
-      {/* Sensitive Content container (blurred if user unfocuses) */}
+      {/* Sensitive Content container (instant 0ms blur/blackout if user unfocuses) */}
       <div
         className="protected-content"
         style={{
-          filter: blurred ? 'blur(25px)' : 'none',
-          transition: 'filter 0.2s ease-in-out',
+          filter: blurred ? 'blur(35px)' : 'none',
+          opacity: blurred ? 0.02 : 1,
+          transition: blurred ? 'none' : 'filter 0.15s ease-out, opacity 0.15s ease-out',
+          pointerEvents: blurred ? 'none' : 'auto',
         }}
       >
         {children}
@@ -70,9 +74,9 @@ export default function AntiScreenshotShield({ children, enabled = true }) {
           style={{
             position: 'absolute',
             inset: 0,
-            zIndex: 999,
-            backdropFilter: 'blur(20px)',
-            background: 'rgba(15, 23, 42, 0.85)',
+            zIndex: 9999,
+            backdropFilter: 'blur(30px)',
+            background: 'rgba(15, 23, 42, 0.98)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -83,11 +87,11 @@ export default function AntiScreenshotShield({ children, enabled = true }) {
             cursor: 'pointer',
           }}
         >
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🛡️</div>
-          <h3 style={{ fontSize: '20px', fontWeight: 700, color: '#f8fafc', marginBottom: '8px' }}>
+          <div style={{ fontSize: '52px', marginBottom: '16px', filter: 'drop-shadow(0 0 15px rgba(99,102,241,0.5))' }}>🛡️</div>
+          <h3 style={{ fontSize: '22px', fontWeight: 800, color: '#f8fafc', marginBottom: '8px' }}>
             {t('antiScreenshot.warningTitle')}
           </h3>
-          <p style={{ maxWidth: '420px', color: '#94a3b8', fontSize: '14px', lineHeight: 1.6, marginBottom: '20px' }}>
+          <p style={{ maxWidth: '440px', color: '#cbd5e1', fontSize: '14px', lineHeight: 1.6, marginBottom: '22px' }}>
             {t('antiScreenshot.warningMessage')}
           </p>
           <button
@@ -97,7 +101,7 @@ export default function AntiScreenshotShield({ children, enabled = true }) {
               resume();
             }}
             className="btn-primary"
-            style={{ padding: '10px 24px', fontSize: '14px', borderRadius: '8px' }}
+            style={{ padding: '12px 28px', fontSize: '15px', fontWeight: 700, borderRadius: '10px' }}
           >
             {i18n.language === 'ar' ? 'متابعة الامتحان' : 'Resume Exam'}
           </button>

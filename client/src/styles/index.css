@@ -1212,4 +1212,16 @@ button {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   Anti-Print & Anti-Capture Hardening
+   ═══════════════════════════════════════════════════════════════════ */
+@media print {
+  html, body, #root, * {
+    display: none !important;
+    visibility: hidden !important;
+    background: #000000 !important;
+    color: transparent !important;
+  }
+}
+
 
