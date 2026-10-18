@@ -169,6 +169,11 @@ button {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  white-space: nowrap;
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .brand-sub {
@@ -1147,11 +1152,19 @@ button {
   }
 
   .navbar-actions {
-    gap: 0.5rem;
+    gap: 0.35rem;
+    flex-shrink: 0;
   }
 
   .nav-btn {
-    padding: 0.45rem 0.65rem;
+    padding: 0;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    flex-shrink: 0;
   }
 
   .modal-card {
@@ -1195,29 +1208,46 @@ button {
 /* Extra Small Phones (< 480px) */
 @media (max-width: 480px) {
   .navbar {
-    padding: 0.5rem 0.65rem;
+    padding: 0.45rem 0.55rem;
     max-width: 100vw;
     box-sizing: border-box;
   }
 
   .navbar-brand {
-    gap: 0.4rem;
+    gap: 0.35rem;
+    min-width: 0;
+    flex-shrink: 0;
+  }
+
+  .mobile-toggle-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .brand-logo {
+    width: 26px;
+    height: 26px;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .brand-text {
+    flex-shrink: 0;
     min-width: 0;
   }
 
   .brand-name {
     font-size: 0.95rem;
-    max-width: 100px;
+    font-weight: 800;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .brand-logo {
-    width: 32px;
-    height: 32px;
-    font-size: 0.85rem;
+    direction: ltr;
+    unicode-bidi: isolate;
+    display: inline-block;
     flex-shrink: 0;
+    max-width: none;
+    overflow: visible;
   }
 
   .brand-sub {
@@ -1225,7 +1255,38 @@ button {
   }
 
   .navbar-actions {
-    gap: 0.35rem;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .nav-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .user-capsule {
+    padding: 1px 3px;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    flex-shrink: 0;
+  }
+
+  .user-avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 0.75rem;
+  }
+
+  .logout-btn {
+    font-size: 0.85rem;
+    padding: 2px;
   }
 
   .stats-grid {
@@ -1257,13 +1318,18 @@ button {
     gap: 0.35rem;
   }
 
-  .nav-btn {
-    font-size: 0.8rem;
-    padding: 0.35rem 0.5rem;
-  }
-
   .page-content {
     padding: 1rem 0.5rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .brand-logo {
+    display: none;
+  }
+
+  .brand-name {
+    font-size: 0.9rem;
   }
 
   .modal-card {

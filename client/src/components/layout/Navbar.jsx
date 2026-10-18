@@ -63,7 +63,7 @@ export default function Navbar({ onOpenNotifications, onToggleMobileMenu, isMobi
           <span>CH</span>
         </div>
         <div className="brand-text">
-          <span className="brand-name">{t('appName')}</span>
+          <span className="brand-name" dir="ltr">{t('appName')}</span>
           <span className="brand-sub">{t('faculty')}</span>
         </div>
       </div>
