@@ -96,7 +96,7 @@ function MainApp() {
           onClose={() => setMobileMenuOpen(false)}
         />
 
-        <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+        <main style={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', width: '100%', maxWidth: '100%' }}>
           {/* Admin Views */}
           {isAdmin && (
             <>
